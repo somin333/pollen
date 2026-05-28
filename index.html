@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pollen — Atmospheric Particle Experience</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: #06060a;
+    overflow: hidden;
+    width: 100vw;
+    height: 100vh;
+    font-family: 'Georgia', serif;
+    cursor: none;
+  }
+
+  canvas {
+    display: block;
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+  }
+
+  #cursor {
+    position: fixed;
+    pointer-events: none;
+    z-index: 1000;
+    width: 6px;
+    height: 6px;
+    background: rgba(255, 230, 100, 0.7);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    mix-blend-mode: screen;
+  }
+
+  #cursor-ring {
+    position: fixed;
+    pointer-events: none;
+    z-index: 999;
+    width: 36px;
+    height: 36px;
+    border: 1px solid rgba(255, 220, 80, 0.22);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: width 0.5s ease, height 0.5s ease, opacity 0.5s ease;
+    mix-blend-mode: screen;
+  }
+
+  .hotspot-label {
+    position: fixed;
+    pointer-events: none;
+    z-index: 100;
+    text-align: center;
+    opacity: 0;
+    transition: opacity 1.4s ease;
+    transform: translate(-50%, -50%);
+  }
+
+  .hotspot-label.visible { opacity: 1; }
+
+  .hotspot-label .month {
+    font-size: 10px;
+    letter-spacing: 0.45em;
+    text-transform: uppercase;
+    color: rgba(255, 210, 80, 0.45);
+    font-family: 'Courier New', monospace;
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .hotspot-label .headline {
+    font-size: clamp(15px, 2.2vw, 24px);
+    color: rgba(255, 238, 160, 0.9);
+    font-style: italic;
+    font-weight: normal;
+    line-height: 1.5;
+    letter-spacing: 0.01em;
+    display: block;
+    text-shadow: 0 0 60px rgba(255, 200, 50, 0.5);
+  }
+
+  .hotspot-label .sub {
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: rgba(255, 200, 100, 0.28);
+    font-family: 'Courier New', monospace;
+    margin-top: 14px;
+    display: block;
+  }
+
+  #ambient-info {
+    position: fixed;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 200;
+    text-align: center;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeIn 3s 2.5s ease forwards;
+  }
+
+  #ambient-info span {
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 0.38em;
+    text-transform: uppercase;
+    color: rgba(255, 210, 80, 0.18);
+  }
+
+  #season-label {
+    position: fixed;
+    top: 30px;
+    left: 34px;
+    z-index: 200;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeIn 3s 3s ease forwards;
+  }
+
+  #season-label span {
+    font-family: 'Courier New', monospace;
+    font-size: 9px;
+    letter-spacing: 0.35em;
+    text-transform: uppercase;
+    color: rgba(255, 210, 80, 0.16);
+    display: block;
+    line-height: 1.9;
+  }
+
+  #density-bar {
+    position: fixed;
+    right: 26px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 200;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    pointer-events: none;
+    opacity: 0;
+    animation: fadeIn 3s 3.5s ease forwards;
+  }
+
+  #density-bar .dlabel {
+    font-family: 'Courier New', monospace;
+    font-size: 7px;
+    letter-spacing: 0.3em;
+    text-transform: uppercase;
+    color: rgba(255, 210, 80, 0.14);
+    writing-mode: vertical-rl;
+    margin-bottom: 10px;
+  }
+
+  #density-track {
+    width: 1px;
+    height: 80px;
+    background: rgba(255, 200, 60, 0.07);
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+  }
+
+  #density-fill {
+    width: 1px;
+    background: linear-gradient(to bottom, rgba(255,200,60,0.7), rgba(255,200,60,0.05));
+    transition: height 1.8s ease;
+  }
+
+  @keyframes fadeIn { to { opacity: 1; } }
+</style>
+</head>
+<body>
+
+<canvas id="c"></canvas>
+<div id="cursor"></div>
+<div id="cursor-ring"></div>
+
+<div class="hotspot-label" id="label-0">
+  <span class="month">April</span>
+  <span class="headline">Highest pollen<br>concentration</span>
+  <span class="sub">Peak dispersal season</span>
+</div>
+<div class="hotspot-label" id="label-1">
+  <span class="month">February</span>
+  <span class="headline">Tree pollen<br>begins drifting</span>
+  <span class="sub">Early seasonal release</span>
+</div>
+<div class="hotspot-label" id="label-2">
+  <span class="month">June</span>
+  <span class="headline">Grass pollen<br>fills the air</span>
+  <span class="sub">Wind-carried particles</span>
+</div>
+<div class="hotspot-label" id="label-3">
+  <span class="month">October</span>
+  <span class="headline">Season<br>dissolves</span>
+  <span class="sub">Concentration fading</span>
+</div>
+
+<div id="ambient-info">
+  <span>move through the air &nbsp;·&nbsp; discover hidden data</span>
+</div>
+
+<div id="season-label">
+  <span>Betula pendula</span>
+  <span>Phleum pratense</span>
+  <span>Artemisia vulgaris</span>
+</div>
+
+<div id="density-bar">
+  <span class="dlabel">density</span>
+  <div id="density-track">
+    <div id="density-fill" style="height:35px;"></div>
+  </div>
+</div>
+
+<script>
+/* ═══════════════════════════════════════════════════════════════════════
+   POLLEN — Atmospheric particle experience
+   Architecture:
+     - Layered canvas particle system (bg/mid/fg)
+     - Smooth Perlin-like noise for organic drift
+     - Mouse: repel core, swirl mid, attract outer
+     - Hotspot zones gather particles and reveal hidden text
+   ═══════════════════════════════════════════════════════════════════════ */
+
+// ── CONFIG ──────────────────────────────────────────────────────────────
+const C = {
+  COUNT:          1800,
+  MOUSE_R:        130,
+  MOUSE_PUSH_R:   44,
+  HOTSPOT_R:      85,
+  GATHER_R:       160,
+  BASE_SPEED:     0.17,
+  NOISE_SCALE:    0.0028,
+  TIME_SCALE:     0.00032,
+  COLORS: [
+    [255, 218,  52],
+    [255, 200,  40],
+    [242, 188,  68],
+    [255, 232, 115],
+    [210, 175,  55],
+    [255, 245, 180],
+  ],
+};
+
+// ── CANVAS ──────────────────────────────────────────────────────────────
+const canvas = document.getElementById('c');
+const ctx    = canvas.getContext('2d');
+let W = 0, H = 0;
+
+function resize() {
+  W = canvas.width  = window.innerWidth;
+  H = canvas.height = window.innerHeight;
+  buildHotspots();
+}
+window.addEventListener('resize', resize);
+
+// ── PERLIN-STYLE NOISE ──────────────────────────────────────────────────
+const PERM = (() => {
+  const p = Array.from({length: 256}, (_, i) => i);
+  for (let i = 255; i > 0; i--) {
+    const j = Math.random() * (i + 1) | 0;
+    [p[i], p[j]] = [p[j], p[i]];
+  }
+  const out = new Uint8Array(512);
+  for (let i = 0; i < 512; i++) out[i] = p[i & 255];
+  return out;
+})();
+
+function fade(t) { return t * t * t * (t * (t * 6 - 15) + 10); }
+function grad(h, x, y) {
+  const u = h < 2 ? x : y, v = h < 2 ? y : x;
+  return ((h & 1) ? -u : u) + ((h & 2) ? -v : v);
+}
+function noise(x, y) {
+  const X = Math.floor(x) & 255, Y = Math.floor(y) & 255;
+  x -= Math.floor(x); y -= Math.floor(y);
+  const u = fade(x), v = fade(y);
+  const a = PERM[X] + Y, b = PERM[X + 1] + Y;
+  return (
+    (v > 0 ? 1 : -1) * 0 + // suppress lint
+    (1 - v) * ((1-u) * grad(PERM[a] & 3, x,   y)   + u * grad(PERM[b] & 3, x-1, y)) +
+          v  * ((1-u) * grad(PERM[a+1] & 3, x, y-1) + u * grad(PERM[b+1] & 3, x-1, y-1))
+  );
+}
+// Simpler but visually fine 2-octave version
+function n2(x, y) {
+  return noise(x, y) * 0.6 + noise(x * 2.1 + 7.3, y * 2.1 + 4.1) * 0.4;
+}
+
+// ── MOUSE ───────────────────────────────────────────────────────────────
+const mouse = { x: -999, y: -999, vx: 0, vy: 0 };
+const curEl  = document.getElementById('cursor');
+const ringEl = document.getElementById('cursor-ring');
+
+document.addEventListener('mousemove', e => {
+  mouse.vx = (e.clientX - mouse.x) * 0.4;
+  mouse.vy = (e.clientY - mouse.y) * 0.4;
+  mouse.x = e.clientX;
+  mouse.y = e.clientY;
+  curEl.style.left  = e.clientX + 'px';
+  curEl.style.top   = e.clientY + 'px';
+  ringEl.style.left = e.clientX + 'px';
+  ringEl.style.top  = e.clientY + 'px';
+});
+
+// ── HOTSPOTS ────────────────────────────────────────────────────────────
+let hotspots = [];
+function buildHotspots() {
+  const defs = [
+    { rx: 0.5,  ry: 0.38 },
+    { rx: 0.22, ry: 0.56 },
+    { rx: 0.78, ry: 0.44 },
+    { rx: 0.5,  ry: 0.70 },
+  ];
+  hotspots = defs.map((d, i) => ({
+    x: d.rx * W,
+    y: d.ry * H,
+    rx: d.rx, ry: d.ry,
+    active: false,
+    label: document.getElementById('label-' + i),
+  }));
+  hotspots.forEach(h => {
+    h.label.style.left = h.x + 'px';
+    h.label.style.top  = h.y + 'px';
+  });
+}
+
+function tickHotspots() {
+  let anyActive = false;
+  hotspots.forEach(h => {
+    const dx = mouse.x - h.x, dy = mouse.y - h.y;
+    const was = h.active;
+    h.active = Math.sqrt(dx*dx + dy*dy) < C.HOTSPOT_R;
+    if (h.active) anyActive = true;
+    if (h.active !== was) {
+      h.label.classList.toggle('visible', h.active);
+      ringEl.style.width   = h.active ? '70px' : '36px';
+      ringEl.style.height  = h.active ? '70px' : '36px';
+      ringEl.style.opacity = h.active ? '0.4'  : '1';
+    }
+  });
+  return anyActive;
+}
+
+// ── PARTICLE ────────────────────────────────────────────────────────────
+class P {
+  constructor(layer) {
+    this.layer = layer;
+    this.born  = false;
+    this.init(true);
+  }
+
+  init(first) {
+    this.x  = Math.random() * (W || 800);
+    this.y  = first ? Math.random() * (H || 600) : (Math.random() > 0.5 ? -8 : (H || 600) + 8);
+    this.vx = 0; this.vy = 0;
+    this.nx = Math.random() * 800;
+    this.ny = Math.random() * 800;
+
+    const lf = [0.5, 0.85, 1.2][this.layer];
+    this.r0 = (Math.random() * 1.5 + 0.35) * lf;
+    this.r  = this.r0;
+    this.spd = [0.42, 0.82, 1.38][this.layer];
+    this.a0 = (Math.random() * 0.32 + 0.07) * lf;
+    this.a  = this.a0;
+    const ci = Math.floor(Math.random() * C.COLORS.length);
+    this.col = C.COLORS[ci];
+  }
+
+  update(t) {
+    // Noise-driven angle
+    const nx = this.nx + this.x * C.NOISE_SCALE;
+    const ny = this.ny + this.y * C.NOISE_SCALE + t;
+    const angle = n2(nx, ny) * Math.PI * 2.8;
+    const spd   = C.BASE_SPEED * this.spd;
+
+    let gathered = false;
+
+    // Hotspot gather
+    for (const h of hotspots) {
+      if (!h.active) continue;
+      const dx = this.x - h.x, dy = this.y - h.y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < C.GATHER_R) {
+        gathered = true;
+        const pull = (1 - d / C.GATHER_R) * 0.09;
+        this.vx += -dx * pull;
+        this.vy += -dy * pull;
+        this.a  = Math.min(this.a + 0.05, 0.92);
+        this.r  = this.r0 * (1 + (1 - d / C.GATHER_R) * 1.6);
+        break;
+      }
+    }
+
+    if (!gathered) {
+      // Mouse interaction
+      const mdx = this.x - mouse.x, mdy = this.y - mouse.y;
+      const md  = Math.sqrt(mdx*mdx + mdy*mdy);
+
+      if (md < C.MOUSE_R && md > 0.01) {
+        const inf = 1 - md / C.MOUSE_R;
+        if (md < C.MOUSE_PUSH_R) {
+          // Push away — core
+          const push = inf * 1.1;
+          this.vx += (mdx / md) * push;
+          this.vy += (mdy / md) * push;
+        } else {
+          // Swirl + gentle attract
+          const swirl = inf * 0.045;
+          const msign = (mouse.vx >= 0) ? 1 : -1;
+          this.vx += (-mdy / md) * swirl * msign;
+          this.vy += ( mdx / md) * swirl * msign;
+          this.vx -= (mdx / md) * inf * 0.012;
+          this.vy -= (mdy / md) * inf * 0.012;
+        }
+        this.a = Math.min(this.a0 + inf * 0.45, 0.95);
+        this.r = this.r0 * (1 + inf * 0.85);
+      } else {
+        this.a += (this.a0 - this.a) * 0.035;
+        this.r += (this.r0 - this.r) * 0.035;
+      }
+    }
+
+    // Drift
+    this.vx += Math.cos(angle) * spd * 0.11;
+    this.vy += Math.sin(angle) * spd * 0.11;
+    // Upward float bias
+    this.vy -= spd * 0.12;
+
+    // Damping
+    this.vx *= 0.92;
+    this.vy *= 0.92;
+
+    this.x += this.vx + Math.cos(angle) * spd;
+    this.y += this.vy + Math.sin(angle) * spd * 0.55;
+
+    // Wrap
+    if (this.x < -15) this.x = W + 8;
+    if (this.x > W+15) this.x = -8;
+    if (this.y < -15) this.y = H + 8;
+    if (this.y > H+15) this.y = -8;
+  }
+
+  draw() {
+    const [r, g, b] = this.col;
+
+    // Soft outer glow (skip for bg layer for perf)
+    if (this.layer > 0) {
+      const gs = this.r * (this.layer === 2 ? 8 : 5.5);
+      const gr = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, gs);
+      const ga = (this.a * 0.28).toFixed(3);
+      gr.addColorStop(0, `rgba(${r},${g},${b},${ga})`);
+      gr.addColorStop(1, `rgba(${r},${g},${b},0)`);
+      ctx.beginPath();
+      ctx.arc(this.x, this.y, gs, 0, 6.283);
+      ctx.fillStyle = gr;
+      ctx.fill();
+    }
+
+    // Core
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, Math.max(this.r, 0.3), 0, 6.283);
+    ctx.fillStyle = `rgba(${r},${g},${b},${Math.min(this.a * 1.9, 0.97).toFixed(3)})`;
+    ctx.fill();
+  }
+}
+
+// ── BUILD POOL ──────────────────────────────────────────────────────────
+let particles = [];
+function initParticles() {
+  particles = [];
+  // Layer distribution: bg 40% / mid 35% / fg 25%
+  [[0, 0.40], [1, 0.35], [2, 0.25]].forEach(([layer, frac]) => {
+    const n = Math.round(C.COUNT * frac);
+    for (let i = 0; i < n; i++) particles.push(new P(layer));
+  });
+}
+
+// ── DENSITY READOUT ─────────────────────────────────────────────────────
+const dfill = document.getElementById('density-fill');
+let density  = 0.4;
+
+function updateDensity(anyHot) {
+  const cx = W/2, cy = H/2;
+  const d  = Math.sqrt((mouse.x-cx)**2 + (mouse.y-cy)**2);
+  const mx = Math.sqrt(cx*cx + cy*cy);
+  const tgt = anyHot ? 0.88 : Math.max(0.12, 1 - d/mx);
+  density += (tgt - density) * 0.018;
+  dfill.style.height = Math.round(density * 80) + 'px';
+}
+
+// ── RENDER LOOP ─────────────────────────────────────────────────────────
+let t = 0, lastTs = 0;
+
+function loop(ts) {
+  const dt = Math.min((ts - lastTs) / 16.67, 2.5);
+  lastTs = ts;
+  t += C.TIME_SCALE * dt;
+
+  // Background — semi-opaque for motion trail
+  ctx.fillStyle = 'rgba(6,6,10,0.52)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Warm vignette from mouse position
+  const vx = mouse.x > 0 ? mouse.x : W/2;
+  const vy = mouse.y > 0 ? mouse.y : H/2;
+  const vig = ctx.createRadialGradient(vx, vy, 0, W/2, H/2, Math.max(W,H)*0.82);
+  vig.addColorStop(0,   'rgba(255,195,48,0.018)');
+  vig.addColorStop(0.4, 'rgba(0,0,0,0)');
+  vig.addColorStop(1,   'rgba(0,0,0,0.52)');
+  ctx.fillStyle = vig;
+  ctx.fillRect(0, 0, W, H);
+
+  const anyHot = tickHotspots();
+  updateDensity(anyHot);
+
+  // Draw layers bg→fg
+  for (let layer = 0; layer < 3; layer++) {
+    ctx.globalAlpha = [0.68, 0.88, 1.0][layer];
+    for (const p of particles) {
+      if (p.layer === layer) { p.update(t); p.draw(); }
+    }
+  }
+  ctx.globalAlpha = 1;
+
+  // Hotspot pulse rings
+  hotspots.forEach(h => {
+    const pulse = 0.5 + 0.5 * Math.sin(t * 900 + h.rx * 12);
+    ctx.beginPath();
+    ctx.arc(h.x, h.y, C.HOTSPOT_R * (0.88 + pulse * 0.1), 0, 6.283);
+    ctx.strokeStyle = `rgba(255,210,55,${h.active ? 0 : (0.03 + pulse * 0.025).toFixed(3)})`;
+    ctx.lineWidth = 0.5;
+    ctx.stroke();
+  });
+
+  requestAnimationFrame(loop);
+}
+
+// ── INIT ────────────────────────────────────────────────────────────────
+resize();
+initParticles();
+requestAnimationFrame(loop);
+
+// Touch support
+document.addEventListener('touchmove', e => {
+  e.preventDefault();
+  const t0 = e.touches[0];
+  mouse.vx = (t0.clientX - mouse.x) * 0.4;
+  mouse.vy = (t0.clientY - mouse.y) * 0.4;
+  mouse.x = t0.clientX; mouse.y = t0.clientY;
+  curEl.style.left  = t0.clientX + 'px';
+  curEl.style.top   = t0.clientY + 'px';
+  ringEl.style.left = t0.clientX + 'px';
+  ringEl.style.top  = t0.clientY + 'px';
+}, { passive: false });
+</script>
+</body>
+</html>
