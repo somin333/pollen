@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POLLEN ARCHIVE - 꽃가루 연구소 탐험</title>
+    <style>
+        /* 기본 스타일링 및 손그림/둥근 감성 정의 */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #fcfbf7;
+            font-family: 'Malgun Gothic', sans-serif;
+            color: #333333;
+            overflow: hidden;
+        }
+
+        h1, h2, h3, h4, p {
+            margin: 0;
+        }
+
+        /* 공통 디자인 시스템 (Woset 스타일: 검은 선 + 파스텔톤 + 라운드) */
+        .hand-drawn-border {
+            border: 3px solid #222222;
+            border-radius: 24px;
+            box-shadow: 4px 4px 0px #222222;
+        }
+
+        .btn {
+            background-color: #e2f0d9;
+            border: 3px solid #222222;
+            border-radius: 50px;
+            padding: 10px 28px;
+            font-size: 16px;
+            font-weight: bold;
+            color: #222222;
+            cursor: pointer;
+            box-shadow: 2px 2px 0px #222222;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .btn:active {
+            box-shadow: 0px 0px 0px #222222;
+            transform: translate(2px, 2px);
+        }
+
+        /* 이미지 원본 비율 보호용 공통 객체 스타일 */
+        .pixel-asset {
+            max-width: 100%;
+            max-height: 100%;
+            object-fit: contain;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        /* ------------------ 고정형 상시 도감 버튼 ------------------ */
+        .fixed-book-trigger {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 999;
+            background-color: #fff9e6;
+            display: none;
+        }
+
+        /* ------------------ 페이지 공통 컨테이너 ------------------ */
+        .page-view {
+            width: 100vw;
+            height: 100vh;
+            display: none;
+            position: absolute;
+            top: 0; left: 0;
+            box-sizing: border-box;
+            padding: 60px 40px 40px 40px;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .active-view {
+            display: flex;
+        }
+
+        /* ------------------ PAGE 1: 연구소 입구 ------------------ */
+        #page1 {
+            background-color: #f4f0ea;
+            justify-content: center;
+            gap: 30px;
+        }
+        
+        /* 전달해주신 오리지널 연구소 빌딩 박스 */
+        .lab-building-wrapper {
+            width: 550px;
+            height: 300px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.8s ease-in-out, opacity 0.7s ease-in-out;
+        }
+        
+        /* 투명 히트박스로 클릭 지점 투명화 가동 */
+        .lab-entrance-clickzone {
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90px;
+            height: 100px;
+            cursor: pointer;
+            border-radius: 12px 12px 0 0;
+            background: rgba(0,0,0,0); /* 완벽 투명 유지하며 인터랙션 타겟팅 */
+            transition: background 0.3s;
+        }
+        .lab-entrance-clickzone:hover {
+            background: rgba(34, 34, 34, 0.08); /* 마우스 오버 시 미세한 피드백 */
+        }
+        
+        /* 문 열림 시 진입 줌인 연출 스타일 효과 */
+        .lab-building-wrapper.zoom-in {
+            transform: scale(3.5) translateY(40px);
+            opacity: 0;
+        }
+
+        /* ------------------ PAGE 2: 계절 선택 구역 ------------------ */
+        #page2 { background-color: #fbfaf5; justify-content: center; gap: 40px;}
+        .season-selector-container { display: flex; gap: 30px; }
+        .season-card {
+            width: 180px; height: 180px;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            gap: 15px; font-weight: bold; font-size: 18px; cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .season-card:hover { transform: scale(1.05); }
+        .season-card.spring { background-color: #eef7e8; }
+        .season-card.summer { background-color: #e6f3f7; }
+        .season-card.autumn { background-color: #fbf0e3; }
+
+        /* ------------------ PAGE 3, 4, 5: 계절별 연구 필드 ------------------ */
+        #zone-spring { background-color: #eef7e8; }
+        #zone-summer { background-color: #e6f3f7; }
+        #zone-autumn { background-color: #fbf0e3; }
+
+        .zone-header { display: flex; justify-content: space-between; width: 100%; max-width: 800px; }
+        .pollen-list { display: flex; justify-content: center; gap: 50px; width: 100%; margin: auto 0; }
+        
+        .pollen-item { display: flex; flex-direction: column; align-items: center; gap: 12px; cursor: pointer; }
+        .pollen-container-box {
+            width: 140px; height: 140px;
+            display: flex; align-items: center; justify-content: center;
+            transition: transform 0.2s;
+        }
+        .pollen-item:hover .pollen-container-box { transform: scale(1.08) rotate(2deg); }
+        
+        /* 발견되어 아카이브에 편입 완료 시 불투명화 필터 및 수집 완료 마커 레이아웃 처리 */
+        .pollen-item.collected .pollen-container-box {
+            filter: grayscale(0.3) opacity(0.5);
+            position: relative;
+        }
+        .pollen-item.collected::after {
+            content: '✔ 조사완료';
+            background: #222; color: #fff; font-size: 11px; font-weight: bold;
+            padding: 3px 10px; border-radius: 12px; margin-top: 5px;
+        }
+
+        .meadow-track {
+            border: 3px dashed #222222; border-radius: 40px;
+            height: 160px; width: 80%; max-width: 700px; margin: auto 0;
+            display: flex; align-items: center; justify-content: space-around;
+        }
+
+        /* ------------------ PAGE 6: 도감 전면 완성 페이지 ------------------ */
+        #zone-complete { background-color: #fff9e6; justify-content: center; gap: 35px; }
+        .complete-card { background: #ffffff; padding: 35px 50px; text-align: center; max-width: 550px; line-height: 1.8; }
+        .complete-status-box { display: flex; justify-content: center; gap: 25px; margin-top: 20px; font-weight: bold; font-size: 14px; }
+        .status-badge { background-color: #fcfbf7; border: 2px solid #222; border-radius: 14px; padding: 8px 16px; }
+
+        /* ------------------ [NEW] encyclopedia_open.png 탑재형 도감 마스터 레이아웃 ------------------ */
+        .book-popup-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.3); display: none; justify-content: center; align-items: center; z-index: 1000;
+        }
+        
+        /* 도감 윈도우 배경을 오픈 북 이미지로 셋팅 */
+        .book-window-frame {
+            width: 820px; height: 600px;
+            background-image: url('encyclopedia_open.jpg');
+            background-size: contain;
+            background-repeat: no-repeat;
+            background-position: center;
+            position: relative;
+            box-sizing: border-box;
+            padding: 55px 70px 50px 70px; /* 도감 속 책 면 구조에 맞춰 정밀 패딩 마킹 */
+        }
+        .book-close-x { position: absolute; top: 20px; right: 35px; font-size: 24px; font-weight: bold; cursor: pointer; color: #222; }
+        
+        /* 도감 전면 실시간 통계 보드 구조 (책 상단 여백에 안착시킴) */
+        .book-dashboard {
+            display: flex; justify-content: space-between; align-items: center;
+            padding-bottom: 10px; margin-bottom: 25px; font-weight: bold; font-size: 13px;
+            border-bottom: 2px dashed rgba(34,34,34,0.15);
+        }
+        .db-total { font-size: 16px; color: #222; }
+        .db-seasons { display: flex; gap: 15px; color: #555; }
+
+        /* 책 펼침 양면 분할 바디 구조 */
+        .book-twin-pages { display: flex; height: calc(100% - 65px); }
+        
+        /* 왼쪽 페이지: 꽃가루 구조적 리스트 */
+        .book-left-page {
+            width: 50%; padding-right: 25px; box-sizing: border-box;
+            display: flex; flex-direction: column; gap: 14px; overflow-y: auto;
+        }
+        .tree-season-sect h5 { font-size: 13px; margin: 0 0 6px 0; color: #444; font-weight: bold; }
+        .tree-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; }
+        
+        /* 도감 리스트 항목 카드 */
+        .tree-card {
+            border: 2px solid #222; border-radius: 12px; padding: 6px 10px; background: #fff;
+            display: flex; align-items: center; gap: 10px; font-size: 12px; font-weight: bold; cursor: pointer;
+        }
+        .tree-card.locked { background: #e2e2e2; color: #8c8c8c; cursor: not-allowed; border-color: #8c8c8c; }
+        .tree-card .mini-thumb-wrapper { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+        .tree-card.active { background-color: #fff9e6; border-color: #ffc000; box-shadow: inset 0 0 4px rgba(0,0,0,0.05); }
+
+        /* 오른쪽 페이지: 디테일 뷰어 설명 판넬 */
+        .book-right-page {
+            width: 50%; padding-left: 25px; box-sizing: border-box;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .detail-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .detail-table td { padding: 8px 10px; font-size: 13px; border-bottom: 1px solid rgba(0,0,0,0.04); }
+        .detail-table td.label { font-weight: bold; color: #666; width: 32%; }
+
+        /* 발견 성공 알림 팝업 창 */
+        .capture-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4); display: none; justify-content: center; align-items: center; z-index: 1100;
+        }
+        .capture-box { width: 300px; background-color: #ffffff; padding: 24px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+        .capture-img-container { width: 110px; height: 110px; display: flex; align-items: center; justify-content: center; }
+    </style>
+</head>
+<body>
+
+    <button class="btn fixed-book-trigger" id="globalBookBtn" onclick="openBookPopup()">📖 꽃가루 도감</button>
+
+    <div class="page-view active-view" id="page1">
+        <div style="text-align: center;">
+            <h1 style="font-size: 32px; letter-spacing: 2px; margin-bottom: 5px;">POLLEN ARCHIVE</h1>
+            <p style="font-size: 16px; color:#666;">신입 연구원을 위한 꽃가루 도감 아카이브</p>
+        </div>
+        
+        <div class="lab-building-wrapper" id="labBuilding">
+            <img src="research_lab.png" class="pixel-asset" alt="연구소 전경">
+            <div class="lab-entrance-clickzone" onclick="triggerEnterSequence()"></div>
+        </div>
+
+        <div class="hand-drawn-border" style="background:#fff; padding:15px 30px; font-size:14px; text-align:center;">
+            💡 <strong>연구소 중앙의 푸른 문</strong>을 마우스로 터치하여 내부로 진입하세요.
+        </div>
+    </div>
+
+
+    <div class="page-view" id="page2">
+        <div style="text-align: center;">
+            <h2 style="font-size: 26px; margin-bottom: 10px;">어느 계절의 꽃가루부터 연구할까요?</h2>
+            <p style="font-size: 14px; color:#666;">계절마다 서로 다른 꽃가루가 활동합니다. 관찰할 구역을 선택해 보세요.</p>
+        </div>
+
+        <div class="season-selector-container">
+            <div class="season-card spring hand-drawn-border" onclick="navigateTo('spring')">
+                <span style="font-size:32px;">🌸</span>
+                <span>봄 연구 구역</span>
+            </div>
+            <div class="season-card summer hand-drawn-border" onclick="navigateTo('summer')">
+                <span style="font-size:32px;">🌿</span>
+                <span>여름 연구 구역</span>
+            </div>
+            <div class="season-card autumn hand-drawn-border" onclick="navigateTo('autumn')">
+                <span style="font-size:32px;">🍁</span>
+                <span>가을 연구 구역</span>
+            </div>
+        </div>
+        <div style="height: 10px;"></div>
+    </div>
+
+
+    <div class="page-view" id="zone-spring">
+        <div class="zone-header">
+            <div>
+                <h2 style="font-size:22px;">🌸 봄 연구 구역</h2>
+                <p style="font-size:13px; color:#555;">나무들이 기지개를 켜며 활동하는 시기입니다.</p>
+            </div>
+            <button class="btn" style="background:#fff;" onclick="navigateTo('map')">🔙 다른 구역 가기</button>
+        </div>
+
+        <div class="pollen-list">
+            <div class="pollen-item" id="field-alder" onclick="discoverPollen('alder', '오리나무')">
+                <div class="pollen-container-box"><img src="alder.png" class="pixel-asset"></div>
+                <div style="font-weight:bold; font-size:14px;">오리나무 꽃가루</div>
+            </div>
+            <div class="pollen-item" id="field-birch" onclick="discoverPollen('birch', '자작나무')">
+                <div class="pollen-container-box"><img src="birch.png" class="pixel-asset"></div>
+                <div style="font-weight:bold; font-size:14px;">자작나무 꽃가루</div>
+            </div>
+            <div class="pollen-item" id="field-oak" onclick="discoverPollen('oak', '참나무')">
+                <div class="pollen-container-box"><img src="oak.png" class="pixel-asset"></div>
+                <div style="font-weight:bold; font-size:14px;">참나무 꽃가루</div>
+            </div>
+        </div>
+        <p style="font-size:13px; color:#666;">➔ 관찰할 꽃가루 대상을 마우스로 클릭해 보세요!</p>
+    </div>
+
+
+    <div class="page-view" id="zone-summer">
+        <div class="zone-header">
+            <div>
+                <h2 style="font-size:22px;">🌿 여름 연구 구역</h2>
+                <p style="font-size:13px; color:#555;">초원 위의 풀들이 바람에 실어 보내는 계절입니다.</p>
+            </div>
+            <button class="btn" style="background:#fff;" onclick="navigateTo('map')">🔙 다른 구역 가기</button>
+        </div>
+
+        <div class="meadow-track">
+            <div class="pollen-item" id="field-grass" onclick="discoverPollen('grass', '잔디')">
+                <div class="pollen-container-box" style="width:130px; height:130px;"><img src="grass.png" class="pixel-asset"></div>
+                <div style="font-weight:bold; font-size:14px; margin-top:5px;">잔디 꽃가루</div>
+            </div>
+            <span style="font-size: 14px; font-weight:bold; color:#444;">🌾 넓은 초원을 순항 비행 중</span>
+        </div>
+        <p style="font-size:13px; color:#666;">➔ 수집할 대상을 터치하여 아카이브에 기록하세요.</p>
+    </div>
+
+
+    <div class="page-view" id="zone-autumn">
+        <div class="zone-header">
+            <div>
+                <h2 style="font-size:22px;">🍁 가을 연구 구역</h2>
+                <p style="font-size:13px; color:#555;">길가나 공터에서 피어나 강인한 면모를 보입니다.</p>
+            </div>
+            <button class="btn" style="background:#fff;" onclick="navigateTo('map')">🔙 다른 구역 가기</button>
+        </div>
+
+        <div class="pollen-list">
+            <div class="pollen-item" id="field-ragweed" onclick="discoverPollen('ragweed', '돼지풀')">
+                <div class="pollen-container-box"><img src="ragweed.png" class="pixel-asset"></div>
+                <div style="font-weight:bold; font-size:14px;">돼지풀 꽃가루</div>
+            </div>
+            <div class="pollen-item" id="field-humulus" onclick="discoverPollen('humulus', '환삼덩굴')">
+                <div class="pollen-container-box"><img src="hopvine.png" class="pixel-asset"></div>
+                <div style="font-weight:bold; font-size:14px;">환삼덩굴 꽃가루</div>
+            </div>
+        </div>
+        <p style="font-size:13px; color:#666;">➔ 대상을 획득하여 도감의 빈자리를 채워주세요.</p>
+    </div>
+
+
+    <div class="page-view" id="zone-complete">
+        <div style="text-align: center;">
+            <span style="font-size: 55px; display: block; margin-bottom: 10px;">🏆</span>
+            <h1 style="font-size: 34px; letter-spacing: 3px; font-weight: bold; color: #222;">POLLEN ARCHIVE COMPLETE</h1>
+        </div>
+
+        <div class="complete-card hand-drawn-border">
+            <p style="font-size: 17px; font-weight: bold; margin-bottom: 12px; color: #2e7d32;">모든 꽃가루 기록이 완료되었습니다.</p>
+            <p style="font-size: 15px; color: #555;">
+                계절마다 흩날리던 꽃가루들이<br>
+                하나의 도감으로 온전히 모였습니다.
+            </p>
+
+            <div class="complete-status-box">
+                <div class="status-badge">🌸 봄 꽃가루 3종 완료</div>
+                <div class="status-badge">🌿 여름 꽃가루 1종 완료</div>
+                <div class="status-badge">🍁 가을 꽃가루 2종 완료</div>
+            </div>
+        </div>
+
+        <button class="btn" style="background-color: #fce4d6;" onclick="resetResearchInstitute()">[ 다시 연구소로 돌아가기 ]</button>
+    </div>
+
+
+    <div class="book-popup-overlay" id="bookPopup">
+        <div class="book-window-frame">
+            <div class="book-close-x" onclick="closeBookPopup()">✕</div>
+            
+            <div class="book-dashboard">
+                <div class="db-total">📊 전체 발견률: <span id="db-total-score" style="color:#4472c4;">0 / 6</span></div>
+                <div class="db-seasons">
+                    <span>봄: <span id="db-spring-score">0 / 3</span></span>
+                    <span>여름: <span id="db-summer-score">0 / 1</span></span>
+                    <span>가을: <span id="db-autumn-score">0 / 2</span></span>
+                </div>
+            </div>
+
+            <div class="book-twin-pages">
+                <div class="book-left-page">
+                    <div class="tree-season-sect">
+                        <h5>[봄의 기록 구역]</h5>
+                        <div class="tree-grid">
+                            <div class="tree-card locked" id="card-alder" onclick="showPopupDetail('alder')"><div class="mini-thumb-wrapper">?</div>오리나무</div>
+                            <div class="tree-card locked" id="card-birch" onclick="showPopupDetail('birch')"><div class="mini-thumb-wrapper">?</div>자작나무</div>
+                            <div class="tree-card locked" id="card-oak" onclick="showPopupDetail('oak')"><div class="mini-thumb-wrapper">?</div>참나무</div>
+                        </div>
+                    </div>
+                    <div class="tree-season-sect">
+                        <h5>[여름의 기록 구역]</h5>
+                        <div class="tree-grid">
+                            <div class="tree-card locked" id="card-grass" onclick="showPopupDetail('grass')"><div class="mini-thumb-wrapper">?</div>잔디</div>
+                        </div>
+                    </div>
+                    <div class="tree-season-sect">
+                        <h5>[가을의 기록 구역]</h5>
+                        <div class="tree-grid">
+                            <div class="tree-card locked" id="card-ragweed" onclick="showPopupDetail('ragweed')"><div class="mini-thumb-wrapper">?</div>돼지풀</div>
+                            <div class="tree-card locked" id="card-humulus" onclick="showPopupDetail('humulus')"><div class="mini-thumb-wrapper">?</div>환삼덩굴</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="book-right-page" id="popupDetailViewer">
+                    <div style="text-align: center; color:#888; line-height: 1.5; font-size:13px;">
+                        <p style="font-size:32px; margin-bottom:10px;">📖</p>
+                        <p>해금 완료된 왼쪽 목록의<br>꽃가루를 터치하시면 정밀 도감 기록과 원본 일러스트가 열립니다.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+
+    <div class="capture-overlay" id="captureOverlay">
+        <div class="capture-box hand-drawn-border">
+            <div style="font-weight: bold; font-size: 18px; color: #222;" id="capture-popup-title">✨ 조사 완료!</div>
+            <div class="capture-img-container"><img id="cap-img" class="pixel-asset"></div>
+            <div style="font-size: 14px; line-height:1.4;" id="capture-popup-desc">도감에 자동 기록되었습니다!</div>
+            <button class="btn" style="padding: 8px 24px; font-size: 14px;" id="capture-action-btn" onclick="closeCaptureAndOpenBook()">확인 및 도감 열기</button>
+        </div>
+    </div>
+
+
+    <script>
+        // 파일 에셋 정보와 데이터의 완전 매칭 테이블
+        const coreDatabase = {
+            alder: { name: '오리나무 꽃가루', file: 'alder.png', season: '봄 (2~3월)', feature: '봄을 가장 먼저 알리는 부지런한 전령사', personality: '부지런함', bg: '#fff4cc', group: 'spring' },
+            birch: { name: '자작나무 꽃가루', file: 'birch.png', season: '봄 (4~5월)', feature: '바람을 타고 아주 높고 멀리 이동하는 특성', personality: '모험심 강함', bg: '#f2f2f2', group: 'spring' },
+            oak: { name: '참나무 꽃가루', file: 'oak.png', season: '봄 (4~5월)', feature: '산과 들에서 광범위하게 자라나는 숲의 지키미', personality: '든든함', bg: '#e2efda', group: 'spring' },
+            grass: { name: '잔디 꽃가루', file: 'grass.png', season: '여름 (6~8월)', feature: '넓고 푸른 초원 위를 무리 지어 낮게 이동함', personality: '사교적임', bg: '#e6f3f7', group: 'summer' },
+            ragweed: { name: '돼지풀 꽃가루', file: 'ragweed.png', season: '가을 (8~9월)', feature: '강인한 번식력과 엄청난 생존력을 가진 생명체', personality: '장난꾸러기', bg: '#fff2cc', group: 'autumn' },
+            humulus: { name: '환삼덩굴 꽃가루', file: 'hopvine.png', season: '가을 (8~10월)', feature: '덩굴 줄기 주위를 맴돌며 늦가을까지 활발히 비행함', personality: '활발함', bg: '#fce4d6', group: 'autumn' }
+        };
+
+        let userProgress = {
+            alder: false, birch: false, oak: false, grass: false, ragweed: false, humulus: false
+        };
+
+        let lastActiveCardKey = null;
+
+        // 1페이지 중앙 진입 함수
+        function triggerEnterSequence() {
+            const building = document.getElementById('labBuilding');
+            building.classList.add('zoom-in');
+            setTimeout(() => {
+                document.getElementById('page1').classList.remove('active-view');
+                document.getElementById('page2').classList.add('active-view');
+                document.getElementById('globalBookBtn').style.display = 'block';
+            }, 800);
+        }
+
+        // 라우팅 모듈
+        function navigateTo(target) {
+            document.querySelectorAll('.page-view').forEach(view => view.classList.remove('active-view'));
+            if (target === 'map') {
+                document.getElementById('page2').classList.add('active-view');
+            } else if (target === 'complete') {
+                document.getElementById('zone-complete').classList.add('active-view');
+            } else {
+                document.getElementById(`zone-${target}`).classList.add('active-view');
+            }
+        }
+
+        // 꽃가루 클릭 이벤트 수집 처리 함수
+        function discoverPollen(key, name) {
+            if (userProgress[key]) {
+                alert('이미 조사를 완료한 꽃가루 생명체입니다.');
+                return;
+            }
+
+            userProgress[key] = true;
+            document.getElementById(`field-${key}`).classList.add('collected');
+
+            const totalScore = syncLiveBookSystem(key);
+
+            // 포획 축하 모달 실시간 렌더링 동기화
+            const capImg = document.getElementById('cap-img');
+            const actionBtn = document.getElementById('capture-action-btn');
+            const popTitle = document.getElementById('capture-popup-title');
+            const popDesc = document.getElementById('capture-popup-desc');
+            
+            capImg.src = coreDatabase[key].file;
+
+            if (totalScore === 6) {
+                popTitle.innerText = "🎉 도감 전면 완성!";
+                popDesc.innerHTML = `마지막 <strong>[${name}]</strong>까지 노트를 가득 채워 진행률이 <strong>6 / 6</strong>이 되었습니다!`;
+                actionBtn.innerText = "완성된 도감 확인하기";
+                actionBtn.onclick = function() {
+                    document.getElementById('captureOverlay').style.display = 'none';
+                    navigateTo('complete');
+                };
+            } else {
+                popTitle.innerText = "✨ 새로운 생명체 조사 성공!";
+                popDesc.innerHTML = `<strong>[${name} 꽃가루]</strong>의 발견 정보가 도감에 추가되었습니다!`;
+                actionBtn.innerText = "확인 및 도감 열기";
+                actionBtn.onclick = closeCaptureAndOpenBook;
+            }
+
+            document.getElementById('captureOverlay').style.display = 'flex';
+        }
+
+        // 실시간 연동 데이터 바인딩 싱크
+        function syncLiveBookSystem(key) {
+            const data = coreDatabase[key];
+            const treeCard = document.getElementById(`card-${key}`);
+            
+            if (treeCard) {
+                treeCard.classList.remove('locked');
+                // 도감 인덱스 좌측 리스트에 임시 텍스트 대신 실제 원본 캐릭터 썸네일 탑재
+                treeCard.innerHTML = `<div class="mini-thumb-wrapper"><img src="${data.file}" class="pixel-asset"></div>${data.name.split(' ')[0]}`;
+            }
+
+            const scores = { total: 0, spring: 0, summer: 0, autumn: 0 };
+            Object.keys(userProgress).forEach(k => {
+                if (userProgress[k]) {
+                    scores.total++;
+                    scores[coreDatabase[k].group]++;
+                }
+            });
+
+            document.getElementById('db-total-score').innerText = `${scores.total} / 6`;
+            document.getElementById('db-spring-score').innerText = `${scores.spring} / 3`;
+            document.getElementById('db-summer-score').innerText = `${scores.summer} / 1`;
+            document.getElementById('db-autumn-score').innerText = `${scores.autumn} / 2`;
+
+            return scores.total;
+        }
+
+        function openBookPopup() { document.getElementById('bookPopup').style.display = 'flex'; }
+        function closeBookPopup() { document.getElementById('bookPopup').style.display = 'none'; }
+        function closeCaptureAndOpenBook() {
+            document.getElementById('captureOverlay').style.display = 'none';
+            openBookPopup();
+        }
+
+        // 도감 우측 페이지 정밀 세부 정보 렌더러
+        function showPopupDetail(key) {
+            if (!userProgress[key]) {
+                alert('아직 획득하지 못한 미지의 꽃가루입니다. 계절 연구 구역을 더 탐험해 보세요!');
+                return;
+            }
+            if (lastActiveCardKey) { document.getElementById(`card-${lastActiveCardKey}`).classList.remove('active'); }
+            lastActiveCardKey = key;
+            document.getElementById(`card-${key}`).classList.add('active');
+
+            const info = coreDatabase[key];
+            
+            // 이미지 에셋 배치 및 원본 정보 그대로 구현
+            document.getElementById('popupDetailViewer').innerHTML = `
+                <div style="width: 130px; height: 130px; display:flex; align-items:center; justify-content:center;">
+                    <img src="${info.file}" class="pixel-asset">
+                </div>
+                <h4 style="font-size: 17px; margin: 12px 0 6px 0; font-weight:bold; color:#222;">${info.name}</h4>
+                <table class="detail-table">
+                    <tr><td class="label">출현 시기</td><td>${info.season}</td></tr>
+                    <tr><td class="label">특징</td><td>${info.feature}</td></tr>
+                    <tr><td class="label">성격</td><td>${info.personality}</td></tr>
+                </table>
+            `;
+        }
+
+        // 연구소 데이터 전면 복원 리셋 모듈
+        function resetResearchInstitute() {
+            Object.keys(userProgress).forEach(k => userProgress[k] = false);
+            document.querySelectorAll('.pollen-item').forEach(el => el.classList.remove('collected'));
+
+            Object.keys(coreDatabase).forEach(k => {
+                const card = document.getElementById(`card-${k}`);
+                if(card) {
+                    card.classList.add('locked');
+                    card.innerHTML = `<div class="mini-thumb-wrapper">?</div>${coreDatabase[k].name.split(' ')[0]}`;
+                }
+            });
+
+            document.getElementById('db-total-score').innerText = `0 / 6`;
+            document.getElementById('db-spring-score').innerText = `0 / 3`;
+            document.getElementById('db-summer-score').innerText = `0 / 1`;
+            document.getElementById('db-autumn-score').innerText = `0 / 2`;
+            document.getElementById('popupDetailViewer').innerHTML = `
+                <div style="text-align: center; color:#888; line-height: 1.5; font-size:13px;">
+                    <p style="font-size:32px; margin-bottom:10px;">📖</p>
+                    <p>해금 완료된 왼쪽 목록의<br>꽃가루를 터치하시면 정밀 도감 기록과 원본 일러스트가 열립니다.</p>
+                </div>
+            `;
+
+            document.getElementById('globalBookBtn').style.display = 'none';
+            document.getElementById('labBuilding').classList.remove('zoom-in');
+            navigateTo('1');
+            document.getElementById('page1').classList.add('active-view');
+        }
+    </script>
+</body>
+</html>
